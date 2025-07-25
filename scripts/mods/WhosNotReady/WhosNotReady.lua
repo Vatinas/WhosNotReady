@@ -253,6 +253,13 @@ end
 --------------------------------------------
 -- WIP - Grab the vote_id when a vote starts
 
+--[[
 mod:hook_safe(CLASS.VotingManagerImmateriumParty, "update", function(self, dt, t)
+    mod.voting_id = mod.voting_id or self._current_vote_id
+end)
+--]]
+
+mod:hook_safe(CLASS.VotingManagerImmateriumParty, "start_voting", function(self, template_name, params)
+    mod:echo("self._current_vote_id = "..tostring(self._current_vote_id))
     mod.voting_id = mod.voting_id or self._current_vote_id
 end)
