@@ -21,24 +21,18 @@ local pnr_text_loc = "Players not ready:"
 
 -- Get player name from account_id
 local player_name_from_peer_id = function(peer_id)
-    --[[
-    if not Managers.player:players()[peer_id] then
-        mod:echo("Error: Manager.player:players()[peer_id] = nil")
-    elseif not Managers.players:players()[peer_id]._profile then
-        mod:echo("Error: Manager.players:players()[peer_id]._profile = nil")
-    else
-        return tostring(Managers.players:players()[peer_id]._profile.name)
-    end
-    --]]
-    --return Managers.backend.interfaces.account:get_account_name_by_account_id(peer_id)
     local member = Managers.party_immaterium:member_from_account_id(peer_id)
-    local presence = member:presence()
-    local account_name = presence:account_name()
+    local presence = member and member:presence()
+    local account_name = presence presence:account_name()
+    local character_name = member.name and member:name()
+    --[[
     if member.name and member:name() then
         return member:name()
     else
         return account_name
     end
+    --]]
+    return character_name or account_name or "[Player name not found]"
 end
 
 -- Update the text of the PNR widget (on the mission voting screen)
@@ -68,6 +62,9 @@ end
 mod.notif_id = nil
 -- The id of the voting session
 mod.voting_id = nil
+mod.wrapped_vote_id = function ()
+    return string.format("immaterium_party:%s", mod.voting_id)
+end
 -- The list of players (peer_id's) of players not ready
 mod.players_not_ready = {}
 -- Create PNR texts for the HUD element & the notif
@@ -143,7 +140,6 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
         return(func(self, message_type, data))
     else
         local notif_data = func(self, "voting", data)
-        ---[[
         notif_data.texts = {
             {
                 -- First line - "Players not ready:"
@@ -163,11 +159,6 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
                 color = Color.text_default(255, true),
             },
         }
-        --]]
-        -- Temporary solution to remove the notif after voting: set its total time to 1s
-        --notif_data.total_time = 1
-        --notif_data.enter_sound_event = notif_data.enter_sound_event or UISoundEvents.notification_default_enter
-        --notif_data.exit_sound_event = notif_data.exit_sound_event or UISoundEvents.notification_default_exit
         return notif_data
     end
 end)
@@ -216,14 +207,13 @@ mod.update = function(dt)
     if not mod.voting_id then
         return
     end
-    local wrapped_vote_id = string.format("immaterium_party:%s", mod.voting_id)
     -->> Ongoing vote
+    --local wrapped_vote_id = string.format("immaterium_party:%s", mod.voting_id)
     --> Update list of members who haven't voted yet
-    local members = Managers.voting:member_list(wrapped_vote_id)
+    local members = Managers.voting:member_list(mod.wrapped_vote_id())
     local account_ids_not_ready = {}
     for _, member_id in pairs(members) do
-        if not Managers.voting:has_voted(wrapped_vote_id, member_id) then
-        --if not Managers.voting:has_voted(member_id) then
+        if not Managers.voting:has_voted(mod.wrapped_vote_id(), member_id) then
             table.insert(account_ids_not_ready, member_id)
         end
     end
@@ -259,14 +249,8 @@ mod.update = function(dt)
 end
 
 
---------------------------------------------
--- WIP - Grab the vote_id when a vote starts
-
---[[
-mod:hook_safe(CLASS.VotingManagerImmateriumParty, "update", function(self, dt, t)
-    mod.voting_id = mod.voting_id or self._current_vote_id
-end)
---]]
+--------------------------------------
+-- Grab the vote_id when a vote starts
 
 --[[
 mod:hook_safe(CLASS.VotingManagerImmateriumParty, "start_voting", function(self, template_name, params)
@@ -292,10 +276,7 @@ mod:hook_safe(CLASS.VotingManager, "update", function(self, dt, t)
     local vote_id = self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_id
     local vote_status = self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_state
     if vote_id and vote_status ~= "finished" and not mod.voting_id then
-        --mod:echo("VotingManager.update - Setting mod.voting_id to: "..tostring(vote_id))
         mod:echo("VotingManager.update - Setting mod.voting_id to: "..tostring(vote_id))
-        --mod:echo("VotingManager.update - vote_id_2 = "..tostring(vote_id_2))
-        --mod:echo(tostring(vote_id == vote_id_2))
         mod:echo("VotingManager.update - vote_status = "..tostring(vote_status))
         mod.voting_id = vote_id
     end
@@ -313,17 +294,6 @@ end)
 --[[
 mod:hook_safe(CLASS.VotingClient, "init", function(self, voting_id, initiator_peer, template, optional_params, member_list, initial_votes_list, time_left)
     local vote_id =  voting_id
-    if not mod.voting_id then
-        mod:echo("start_voting - Setting mod.voting_id to: "..tostring(vote_id))
-    end
-    --mod.voting_id = mod.voting_id or vote_id
-    mod.voting_id = vote_id
-end)
---]]
-
---[[
-mod:hook_safe(CLASS.VotingClient, "update", function(self, dt, t)
-    local vote_id =  self._voting_id
     if not mod.voting_id then
         mod:echo("start_voting - Setting mod.voting_id to: "..tostring(vote_id))
     end
