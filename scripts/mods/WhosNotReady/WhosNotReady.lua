@@ -206,7 +206,7 @@ mod.update = function(dt)
     if mod.voting_id then
         -->> Ongoing vote
         --> Update list of members who haven't voted yet
-        local members = Managers.voting:member_list(mod._voting_id)
+        local members = Managers.voting:member_list(mod.voting_id)
         local members_not_ready = {}
         --[[
         for _, member_id in pairs(members) do
