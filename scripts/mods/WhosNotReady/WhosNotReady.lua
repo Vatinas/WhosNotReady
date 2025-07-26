@@ -133,6 +133,7 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
         return(func(self, message_type, data))
     else
         local notif_data = func(self, "voting", data)
+        ---[[
         notif_data.texts = {
             {
                 -- First line - "Players not ready:"
@@ -148,10 +149,11 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
             {
                 -- Second line - "Player_1 - [...] - Player_n"
                 font_size = 20,
-                display_name = data.text,
+                display_name = data.texts[2],
                 color = Color.text_default(255, true),
             },
         }
+        --]]
         -- Temporary solution to remove the notif after voting: set its total time to 1s
         notif_data.total_time = 1
         --notif_data.enter_sound_event = notif_data.enter_sound_event or UISoundEvents.notification_default_enter
@@ -201,26 +203,20 @@ end)
 
 mod.update = function(dt)
     -->> No ongoing vote
-    if not mod.voting_id then
-        return
-    end
-    -->> We thought there was an ongoing vote, but it has ended
-    if not Managers.voting:voting_exists(mod.voting_id) then
-        Managers.event:trigger("event_remove_notification", mod.notif_id)
-        mod.notif_id = nil
-        mod.voting_id = nil
-        mod.players_not_ready = {}
-    else
-    -->> Ongoing vote
+    if mod.voting_id then
+        -->> Ongoing vote
         --> Update list of members who haven't voted yet
         local members = Managers.voting:member_list(mod._voting_id)
         local members_not_ready = {}
+        --[[
         for _, member_id in pairs(members) do
-            -- if not Managers.voting:has_voted(self._voting_id, member_id) then
-            if not Managers.voting:has_voted(member_id) then
+            --mod:echo("Managers.voting:has_voted(mod._voting_id, "..tostring(member_id)..") = "..tostring(Managers.voting:has_voted(mod._voting_id, member_id)))
+            if not Managers.voting:has_voted(mod._voting_id, member_id) then
+            --if not Managers.voting:has_voted(member_id) then
                 table.insert(members_not_ready, member_id)
             end
         end
+        --]]
         mod.players_not_ready = table.clone(members_not_ready)
         --> Create/update notif
         local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
@@ -232,7 +228,11 @@ mod.update = function(dt)
         if not mod.notif_id or not notif_element:_notification_by_id(mod.notif_id) then
             -- Create notif
             Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
-                text = "[TEST3]",
+                texts = {
+                    "[TEST3.1]",
+                    "[TEST3.2]",
+                    "[TEST3.3]",
+                },
             }, function (id)
                 mod.notif_id = id
             end)
@@ -259,7 +259,66 @@ mod:hook_safe(CLASS.VotingManagerImmateriumParty, "update", function(self, dt, t
 end)
 --]]
 
+--[[
 mod:hook_safe(CLASS.VotingManagerImmateriumParty, "start_voting", function(self, template_name, params)
     mod:echo("self._current_vote_id = "..tostring(self._current_vote_id))
     mod.voting_id = mod.voting_id or self._current_vote_id
 end)
+--]]
+
+--[[
+mod:hook_safe(CLASS.VotingManager, "start_voting", function(self, template_name, params)
+    local vote_id =  self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_id
+    if not mod.voting_id then
+        mod:echo("start_voting - Setting mod.voting_id to: "..tostring(vote_id))
+    end
+    --mod.voting_id = mod.voting_id or vote_id
+    mod.voting_id = vote_id
+end)
+--]]
+
+---[[
+mod:hook_safe(CLASS.VotingManager, "update", function(self, dt, t)
+    -- Check for new vote_id
+    local vote_id = self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_id
+    local vote_status = self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_state
+    if vote_id and vote_status ~= "finished" and not mod.voting_id then
+        --mod:echo("VotingManager.update - Setting mod.voting_id to: "..tostring(vote_id))
+        mod:echo("VotingManager.update - Setting mod.voting_id to: "..tostring(vote_id))
+        --mod:echo("VotingManager.update - vote_id_2 = "..tostring(vote_id_2))
+        --mod:echo(tostring(vote_id == vote_id_2))
+        mod:echo("VotingManager.update - vote_status = "..tostring(vote_status))
+        mod.voting_id = vote_id
+    end
+    -- We thought there was an ongoing vote, but it has ended
+    if vote_status == "finished" and mod.voting_id then
+        mod:echo("self._immaterium_party_voting_impl._current_vote_state == \"finished\", deleting mod.voting_id")
+        Managers.event:trigger("event_remove_notification", mod.notif_id)
+        mod.voting_id = nil
+        mod.notif_id = nil
+        mod.players_not_ready = {}
+    end
+end)
+--]]
+
+--[[
+mod:hook_safe(CLASS.VotingClient, "init", function(self, voting_id, initiator_peer, template, optional_params, member_list, initial_votes_list, time_left)
+    local vote_id =  voting_id
+    if not mod.voting_id then
+        mod:echo("start_voting - Setting mod.voting_id to: "..tostring(vote_id))
+    end
+    --mod.voting_id = mod.voting_id or vote_id
+    mod.voting_id = vote_id
+end)
+--]]
+
+--[[
+mod:hook_safe(CLASS.VotingClient, "update", function(self, dt, t)
+    local vote_id =  self._voting_id
+    if not mod.voting_id then
+        mod:echo("start_voting - Setting mod.voting_id to: "..tostring(vote_id))
+    end
+    --mod.voting_id = mod.voting_id or vote_id
+    mod.voting_id = vote_id
+end)
+--]]
