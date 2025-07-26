@@ -21,7 +21,6 @@ local pnr_text_loc = "Players not ready:"
 
 -- Get player name from account_id
 local player_name_from_peer_id = function(peer_id)
-    -- return Managers.player:player(peer_id, 1):name()
     --[[
     if not Managers.player:players()[peer_id] then
         mod:echo("Error: Manager.player:players()[peer_id] = nil")
@@ -32,15 +31,6 @@ local player_name_from_peer_id = function(peer_id)
     end
     --]]
     --return Managers.backend.interfaces.account:get_account_name_by_account_id(peer_id)
-    --return tostring(peer_id)
-    --[[
-    local members = Managers.party_immaterium:all_members()
-    for _, member in pairs(members) do
-        if member:unique_id() == peer_id then
-            
-        end
-    end
-    --]]
     local member = Managers.party_immaterium:member_from_account_id(peer_id)
     local presence = member:presence()
     local account_name = presence:account_name()
@@ -82,7 +72,6 @@ mod.get_pnr_texts = function()
     local text_2 = ""
     for _, peer_id in pairs(mod.players_not_ready) do
         local player_name = player_name_from_peer_id(peer_id)
-        --local player_name = tostring(peer_id)
         text_2 = text_2..player_name.." - "
     end
     -- Small manip to remove the extra " - " at the end of text_2 (which looks like "player1 - player2 - ")
@@ -172,7 +161,7 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
         }
         --]]
         -- Temporary solution to remove the notif after voting: set its total time to 1s
-        notif_data.total_time = 1
+        --notif_data.total_time = 1
         --notif_data.enter_sound_event = notif_data.enter_sound_event or UISoundEvents.notification_default_enter
         --notif_data.exit_sound_event = notif_data.exit_sound_event or UISoundEvents.notification_default_exit
         return notif_data
@@ -226,35 +215,14 @@ mod.update = function(dt)
     local wrapped_vote_id = string.format("immaterium_party:%s", mod.voting_id)
     -->> Ongoing vote
     --> Update list of members who haven't voted yet
-    ---[[
-    --]]
     local members = Managers.voting:member_list(wrapped_vote_id)
-    local members_not_ready = {}
     local account_ids_not_ready = {}
-    --mod:echo(tostring(members))
-    ---[[
-    ---[[
     for _, member_id in pairs(members) do
-        --mod:echo("Managers.voting:has_voted(mod.voting_id, "..tostring(member_id)..") = "..tostring(Managers.voting:has_voted(mod.voting_id, member_id)))
         if not Managers.voting:has_voted(wrapped_vote_id, member_id) then
         --if not Managers.voting:has_voted(member_id) then
-            --table.insert(members_not_ready, member_id)
             table.insert(account_ids_not_ready, member_id)
-            --[[
-            for id, player in pairs(Managers.player:players()) do
-                --mod:echo(player:account_id())
-                if player:account_id() == member_id then
-                    mod:echo("Found player")
-                    table.insert(player_names_not_ready, player:name())
-                end
-                
-            end
-            --]]
         end
     end
-    --]]
-    --mod.players_not_ready = table.clone(members_not_ready)
-    --mod.players_not_ready = table.clone(player_names_not_ready)
     mod.players_not_ready = table.clone(account_ids_not_ready)
     --> Create/update notif
     local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
