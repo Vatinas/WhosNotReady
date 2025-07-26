@@ -19,16 +19,32 @@ local pnr_text_loc = "Players not ready:"
 ------------
 -- Utilities
 
--- Get player name from peer_id
+-- Get player name from account_id
 local player_name_from_peer_id = function(peer_id)
     -- return Managers.player:player(peer_id, 1):name()
-    if not Manager.player:players()[peer_id] then
+    --[[
+    if not Managers.player:players()[peer_id] then
         mod:echo("Error: Manager.player:players()[peer_id] = nil")
-    elseif not Manager.players:players()[peer_id]._profile then
+    elseif not Managers.players:players()[peer_id]._profile then
         mod:echo("Error: Manager.players:players()[peer_id]._profile = nil")
     else
-    return tostring(Manager.players:players()[peer_id]._profile.name)
+        return tostring(Managers.players:players()[peer_id]._profile.name)
     end
+    --]]
+    --return Managers.backend.interfaces.account:get_account_name_by_account_id(peer_id)
+    --return tostring(peer_id)
+    --[[
+    local members = Managers.party_immaterium:all_members()
+    for _, member in pairs(members) do
+        if member:unique_id() == peer_id then
+            
+        end
+    end
+    --]]
+    local member = Managers.party_immaterium:member_from_account_id(peer_id)
+    local presence = member:presence()
+    local account_name = presence:account_name()
+    return account_name
 end
 
 -- Update the text of the PNR widget (on the mission voting screen)
@@ -66,6 +82,7 @@ mod.get_pnr_texts = function()
     local text_2 = ""
     for _, peer_id in pairs(mod.players_not_ready) do
         local player_name = player_name_from_peer_id(peer_id)
+        --local player_name = tostring(peer_id)
         text_2 = text_2..player_name.." - "
     end
     -- Small manip to remove the extra " - " at the end of text_2 (which looks like "player1 - player2 - ")
@@ -203,49 +220,69 @@ end)
 
 mod.update = function(dt)
     -->> No ongoing vote
-    if mod.voting_id then
-        -->> Ongoing vote
-        --> Update list of members who haven't voted yet
-        local members = Managers.voting:member_list(mod.voting_id)
-        local members_not_ready = {}
-        --[[
-        for _, member_id in pairs(members) do
-            --mod:echo("Managers.voting:has_voted(mod._voting_id, "..tostring(member_id)..") = "..tostring(Managers.voting:has_voted(mod._voting_id, member_id)))
-            if not Managers.voting:has_voted(mod._voting_id, member_id) then
-            --if not Managers.voting:has_voted(member_id) then
-                table.insert(members_not_ready, member_id)
+    if not mod.voting_id then
+        return
+    end
+    local wrapped_vote_id = string.format("immaterium_party:%s", mod.voting_id)
+    -->> Ongoing vote
+    --> Update list of members who haven't voted yet
+    ---[[
+    --]]
+    local members = Managers.voting:member_list(wrapped_vote_id)
+    local members_not_ready = {}
+    local account_ids_not_ready = {}
+    --mod:echo(tostring(members))
+    ---[[
+    ---[[
+    for _, member_id in pairs(members) do
+        --mod:echo("Managers.voting:has_voted(mod.voting_id, "..tostring(member_id)..") = "..tostring(Managers.voting:has_voted(mod.voting_id, member_id)))
+        if not Managers.voting:has_voted(wrapped_vote_id, member_id) then
+        --if not Managers.voting:has_voted(member_id) then
+            --table.insert(members_not_ready, member_id)
+            table.insert(account_ids_not_ready, member_id)
+            --[[
+            for id, player in pairs(Managers.player:players()) do
+                --mod:echo(player:account_id())
+                if player:account_id() == member_id then
+                    mod:echo("Found player")
+                    table.insert(player_names_not_ready, player:name())
+                end
+                
             end
+            --]]
         end
-        --]]
-        mod.players_not_ready = table.clone(members_not_ready)
-        --> Create/update notif
-        local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
-        local notif_element = constant_elements and constant_elements:element("ConstantElementNotificationFeed")
-        if not notif_element then
-            mod:echo("Error: notif_element not found")
-            return
-        end
-        if not mod.notif_id or not notif_element:_notification_by_id(mod.notif_id) then
-            -- Create notif
-            Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
-                texts = {
-                    "[TEST3.1]",
-                    "[TEST3.2]",
-                    "[TEST3.3]",
-                },
-            }, function (id)
-                mod.notif_id = id
-            end)
-        else
-            -- Update notif
-            local notif = notif_element:_notification_by_id(mod.notif_id)
-            local text_1, text_2 = mod.get_pnr_texts()
-            local texts = {
-                text_1, text_2
-            }
-            notif_element:_set_texts(notif, texts)
-            notif.time = 0
-        end
+    end
+    --]]
+    --mod.players_not_ready = table.clone(members_not_ready)
+    --mod.players_not_ready = table.clone(player_names_not_ready)
+    mod.players_not_ready = table.clone(account_ids_not_ready)
+    --> Create/update notif
+    local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
+    local notif_element = constant_elements and constant_elements:element("ConstantElementNotificationFeed")
+    if not notif_element then
+        mod:echo("Error: notif_element not found")
+        return
+    end
+    if not mod.notif_id or not notif_element:_notification_by_id(mod.notif_id) then
+        -- Create notif
+        Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
+            texts = {
+                "[TEST3.1]",
+                "[TEST3.2]",
+                "[TEST3.3]",
+            },
+        }, function (id)
+            mod.notif_id = id
+        end)
+    else
+        -- Update notif
+        local notif = notif_element:_notification_by_id(mod.notif_id)
+        local text_1, text_2 = mod.get_pnr_texts()
+        local texts = {
+            text_1, text_2
+        }
+        notif_element:_set_texts(notif, texts)
+        notif.time = 0
     end
 end
 
