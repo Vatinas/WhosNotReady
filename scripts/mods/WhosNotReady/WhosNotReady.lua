@@ -34,7 +34,11 @@ local player_name_from_peer_id = function(peer_id)
     local member = Managers.party_immaterium:member_from_account_id(peer_id)
     local presence = member:presence()
     local account_name = presence:account_name()
-    return account_name
+    if member.name and member:name() then
+        return member:name()
+    else
+        return account_name
+    end
 end
 
 -- Update the text of the PNR widget (on the mission voting screen)
