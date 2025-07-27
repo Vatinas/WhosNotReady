@@ -273,16 +273,27 @@ end)
 ---[[
 mod:hook_safe(CLASS.VotingManager, "update", function(self, dt, t)
     -- Check for new vote_id
-    local vote_id = self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_id
-    local vote_status = self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_state
+    local immaterium_party_voting = self._immaterium_party_voting_impl
+    local game_mode = Managers.state.game_mode and Managers.state.game_mode:game_mode_name()
+    local in_hub_or_psyk = game_mode == "hub" or game_mode == "training_grounds"
+    if not in_hub_or_psyk then
+        return
+    elseif not immaterium_party_voting then
+        mod:echo("Error: self._immaterium_party_voting_impl = nil")
+        return
+    end
+    local vote_id = immaterium_party_voting._current_vote_id
+    local vote_status = immaterium_party_voting._current_vote_state
+    ---[[ Disable temporarily to try setting mod.voting_id with a "start voting" hook
     if vote_id and vote_status ~= "finished" and not mod.voting_id then
         mod:echo("VotingManager.update - Setting mod.voting_id to: "..tostring(vote_id))
-        mod:echo("VotingManager.update - vote_status = "..tostring(vote_status))
+        --mod:echo("VotingManager.update - vote_status = "..tostring(vote_status))
         mod.voting_id = vote_id
     end
+    --]]
     -- We thought there was an ongoing vote, but it has ended
     if vote_status == "finished" and mod.voting_id then
-        mod:echo("self._immaterium_party_voting_impl._current_vote_state == \"finished\", deleting mod.voting_id")
+        mod:echo("Vote finished, deleting mod.voting_id")
         Managers.event:trigger("event_remove_notification", mod.notif_id)
         mod.voting_id = nil
         mod.notif_id = nil
@@ -299,5 +310,28 @@ mod:hook_safe(CLASS.VotingClient, "init", function(self, voting_id, initiator_pe
     end
     --mod.voting_id = mod.voting_id or vote_id
     mod.voting_id = vote_id
+end)
+--]]
+
+--[[ Hook using promise:
+mod:hook(CLASS.VotingManager, "start_voting", function(func, self, template_name, params)
+    local result = func(self, template_name, params)
+    result:next(function(voting_id)
+        mod:echo("VotingManager.start_voting - Setting mod.voting_id to "..tostring(voting_id))
+        mod.voting_id = voting_id
+    end)
+    return result
+end)
+--]]
+
+--[[
+mod:hook(CLASS.PartyImmateriumManager, "start_vote", function(func, self, type, params, myParams)
+    local promise, id = func(self, type, params, myParams)
+    mod:echo("PartyImmateriumManager.start_vote - id = "..tostring(id))
+    promise:next(function(voting_id)
+        mod:echo("PartyImmateriumManager.start_vote - Promise fulfilled, setting mod.voting_id to "..tostring(voting_id))
+        mod.voting_id = voting_id
+    end)
+    return promise, id
 end)
 --]]
