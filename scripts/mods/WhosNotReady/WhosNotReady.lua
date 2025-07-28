@@ -202,6 +202,7 @@ end)
 -------------------------------------------------------------
 -- Update list of non-ready players & create/update PNR notif
 
+--[[
 mod.update = function(dt)
     -->> No ongoing vote
     if not mod.voting_id then
@@ -210,14 +211,18 @@ mod.update = function(dt)
     -->> Ongoing vote
     --local wrapped_vote_id = string.format("immaterium_party:%s", mod.voting_id)
     --> Update list of members who haven't voted yet
-    local members = Managers.voting:member_list(mod.wrapped_vote_id())
+    --local members = Managers.voting:member_list(mod.wrapped_vote_id())
+    --[
+    local members = Managers.voting:member_list(mod.voting_id)
     local account_ids_not_ready = {}
     for _, member_id in pairs(members) do
-        if not Managers.voting:has_voted(mod.wrapped_vote_id(), member_id) then
+        --if not Managers.voting:has_voted(mod.wrapped_vote_id(), member_id) then
+        if not Managers.voting:has_voted(mod.voting_id, member_id) then
             table.insert(account_ids_not_ready, member_id)
         end
     end
     mod.players_not_ready = table.clone(account_ids_not_ready)
+    --]
     --> Create/update notif
     local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
     local notif_element = constant_elements and constant_elements:element("ConstantElementNotificationFeed")
@@ -247,6 +252,7 @@ mod.update = function(dt)
         notif.time = 0
     end
 end
+--]]
 
 
 --------------------------------------
@@ -270,9 +276,8 @@ mod:hook_safe(CLASS.VotingManager, "start_voting", function(self, template_name,
 end)
 --]]
 
----[[
+--[[
 mod:hook_safe(CLASS.VotingManager, "update", function(self, dt, t)
-    -- Check for new vote_id
     local immaterium_party_voting = self._immaterium_party_voting_impl
     local game_mode = Managers.state.game_mode and Managers.state.game_mode:game_mode_name()
     local in_hub_or_psyk = game_mode == "hub" or game_mode == "training_grounds"
@@ -282,15 +287,15 @@ mod:hook_safe(CLASS.VotingManager, "update", function(self, dt, t)
         mod:echo("Error: self._immaterium_party_voting_impl = nil")
         return
     end
+    -- Check for new vote_id
     local vote_id = immaterium_party_voting._current_vote_id
     local vote_status = immaterium_party_voting._current_vote_state
-    ---[[ Disable temporarily to try setting mod.voting_id with a "start voting" hook
+    -- Disable temporarily to try setting mod.voting_id with a "start voting" hook
     if vote_id and vote_status ~= "finished" and not mod.voting_id then
         mod:echo("VotingManager.update - Setting mod.voting_id to: "..tostring(vote_id))
         --mod:echo("VotingManager.update - vote_status = "..tostring(vote_status))
         mod.voting_id = vote_id
     end
-    --]]
     -- We thought there was an ongoing vote, but it has ended
     if vote_status == "finished" and mod.voting_id then
         mod:echo("Vote finished, deleting mod.voting_id")
@@ -333,5 +338,121 @@ mod:hook(CLASS.PartyImmateriumManager, "start_vote", function(func, self, type, 
         mod.voting_id = voting_id
     end)
     return promise, id
+end)
+--]]
+
+--[[
+mod:hook_require(
+    "scripts/settings/voting/voting_templates/accept_mission_voting_template_immaterium",
+    function(returned_template)
+        local original_func_on_vote_casted = returned_template.on_vote_casted
+        returned_template.on_vote_casted = function(voting_id, template, voter_account_id, vote_option)
+            -- Set mod.voting_id if needed
+            if not mod.voting_id then
+                mod:echo("on_vote_casted - Setting mod.vote_id to "..tostring(voting_id))
+                mod.voting_id = voting_id
+            end
+            -- Record player vote
+            mod:echo("on_vote_casted - Vote cast by "..player_name_from_peer_id(voter_account_id))
+            -- Return original result
+            return original_func_on_vote_casted(voting_id, template, voter_account_id, vote_option)
+        end
+        local original_func_on_started = returned_template.on_started
+        returned_template.on_started = function(voting_id, template, params)
+            -- Set mod.voting_id if needed
+            if not mod.voting_id then
+                mod:echo("on_started - Setting mod.vote_id to "..tostring(voting_id))
+                mod.voting_id = voting_id
+            end
+            -- Record player vote
+            --mod:echo("on_vote_casted - Vote cast by "..player_name_from_peer_id(voter_account_id))
+            -- Return original result
+            return original_func_on_started(voting_id, template, params)
+        end
+    end
+)
+--]]
+
+mod:hook_require(
+    "scripts/settings/voting/voting_templates/mission_vote_matchmaking_immaterium",
+    function(returned_template)
+        -->> on_vote_casted - Looking for new voting sessions & recording cast votes
+        local original_func_on_vote_casted = returned_template.on_vote_casted
+        returned_template.on_vote_casted = function(voting_id, template, voter_account_id, vote_option)
+            --> New vote started
+            if not mod.voting_id then
+                -- Set mod.voting_id
+                mod:echo("on_vote_casted - Setting mod.vote_id to "..tostring(voting_id))
+                mod.voting_id = voting_id
+                -- Set mod.players_not_ready
+                local members = Managers.voting:member_list(voting_id)
+                mod.players_not_ready = table.clone(members)
+                -- Create notif
+                Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
+                    texts = {
+                        "[TEST3.1]",
+                        "[TEST3.2]",
+                        "[TEST3.3]",
+                    },
+                }, function (id)
+                    mod.notif_id = id
+                end)
+            end
+            --> Record player vote
+            mod:echo("on_vote_casted - Vote cast by "..player_name_from_peer_id(voter_account_id))
+            local new_players_not_ready = {}
+            for _, account_id in pairs(mod.players_not_ready) do
+                if account_id ~= voter_account_id then
+                    table.insert(new_players_not_ready, account_id)
+                end
+            end
+            mod.players_not_ready = table.clone(new_players_not_ready)
+            --> Update notif
+            local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
+            local notif_element = constant_elements and constant_elements:element("ConstantElementNotificationFeed")
+            local notif = notif_element and notif_element:_notification_by_id(mod.notif_id)
+            local text_1, text_2 = mod.get_pnr_texts()
+            local texts = {
+                text_1, text_2
+            }
+            if notif then
+                notif_element:_set_texts(notif, texts)
+                notif.time = 0
+            end
+            --> Return original result
+            return original_func_on_vote_casted(voting_id, template, voter_account_id, vote_option)
+        end
+        -->> on_completed - Deleting mod.voting_id and notification
+        local original_func_on_completed = returned_template.on_completed
+        returned_template.on_completed = function(voting_id, template, vote_state, result)
+            --> Delete mod.voting_id & notif
+            mod:echo("on_completed - Voting over, deleting mod.voting_id")
+            if mod.notif_id then
+                Managers.event:trigger("event_remove_notification", mod.notif_id)
+            end
+            mod.voting_id = nil
+            mod.notif_id = nil
+            mod.players_not_ready = {}
+            --> Return original result
+            return original_func_on_completed(voting_id, template, vote_state, result)
+        end
+    end
+)
+
+--[[
+mod:hook_safe(CLASS.VotingClient, "register_vote", function(self, voter_peer_id, option)
+    if not mod.voting_id then
+        mod:echo("VotingClient.register_vote - Setting mod.voting_id to "..tostring(self._voting_id))
+        mod.voting_id = self._voting_id
+    end
+    mod:echo("VotingClient.register_vote - Vote cast by "..player_name_from_peer_id(voter_peer_id))
+end)
+
+mod:hook_safe(CLASS.VotingHost, "register_vote", function(self, voter_peer_id, option)
+    if not mod.voting_id then
+        mod:echo("VotingClient.register_vote - Setting mod.voting_id to "..tostring(self._voting_id))
+        mod.voting_id = self._voting_id
+    end
+    mod:echo("VotingClient.register_vote - Vote cast by "..player_name_from_peer_id(voter_peer_id))
 end)
 --]]
