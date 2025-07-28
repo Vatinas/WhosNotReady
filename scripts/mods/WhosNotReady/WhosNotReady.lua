@@ -1,14 +1,5 @@
 local mod = get_mod("WhosNotReady")
 
-local UIWidget = require("scripts/managers/ui/ui_widget")
-local UIFontSettings = require("scripts/managers/ui/ui_font_settings")
-
-
-----------------------------------------------------
--- Get base game definitions for mission voting view
-
-local Definitions = require("scripts/ui/views/mission_voting_view/mission_voting_view_definitions")
-
 
 -----------------
 -- Temporary locs
@@ -25,33 +16,7 @@ local player_name_from_peer_id = function(peer_id)
     local presence = member and member:presence()
     local account_name = presence presence:account_name()
     local character_name = member.name and member:name()
-    --[[
-    if member.name and member:name() then
-        return member:name()
-    else
-        return account_name
-    end
-    --]]
     return character_name or account_name or "[Player name not found]"
-end
-
--- Update the text of the PNR widget (on the mission voting screen)
-local update_PNR_text = function(widget, text)
-    if not widget then
-        mod:echo("Error: widget = nil")
-        return
-    elseif not widget.content then
-        mod:echo("Error: widget.content = nil")
-        return
-    elseif not widget.content.text then
-        mod:echo("Error: widget.content.text = nil")
-        return
-    end
-    if not text then
-        mod:echo("Error: text = nil")
-        return
-    end
-    widget.content.text = text
 end
 
 
@@ -81,54 +46,6 @@ mod.get_pnr_texts = function()
     end
     return text_1, text_2
 end
-
-
-----------------------------------
--- Create new widget definition(s)
-
-local font_style = table.clone(UIFontSettings.header_3)
-
-font_style.font_size = 20
-font_style.offset = {
-	0,
-	0,
-	13,
-}
-font_style.text_horizontal_alignment = "center"
-font_style.text_color = {
-	255,
-	169,
-	191,
-	153,
-}
-
-local widget_definitions = {
-    players_not_ready = UIWidget.create_definition({
-		{
-			pass_type = "text",
-			style_id = "players_not_ready",
-			value = "[TEST]",
-			value_id = "players_not_ready",
-			style = font_style,
-		},
-	}, "timer_bar"),
-}
-
-
----------------------------------------
--- Add our defs to the base game's defs
-
-for name, def in pairs(widget_definitions) do
-    Definitions[name] = def
-end
-
-
-----------------------------------------------------------------
--- Init the MissionVotingView with the combined defs (manually?)
-
-mod:hook_safe(CLASS.MissionVotingView, "init", function(self, settings, context)
-    self._definitions = Definitions
-end)
 
 
 -------------------------------------
@@ -162,42 +79,6 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
         return notif_data
     end
 end)
-
-
----------------------------------------------------
--- Update PNR widget (on the mission voting screen)
-
---[[
-mod:hook_safe(CLASS.MissionVotingView, "update", function(self, dt, t, input_service)
-    if not self._voting_id then
-        mod:echo("Error: self._voting_id not found")
-        return
-    end
-    mod.voting_id = self._voting_id
-    -- Members are represented by their peer_id:
-    local members = Managers.voting:member_list(self._voting_id)
-    -- Get members who haven't voted yet
-    local members_not_ready = {}
-    for _, member_id in pairs(members) do
-        -- if not Managers.voting:has_voted(self._voting_id, member_id) then
-        if not Managers.voting:has_voted(member_id) then
-            table.insert(members_not_ready, member_id)
-        end
-    end
-    mod.players_not_ready = table.clone(members_not_ready)
-    -- Update PNR widget text
-    local widget = self._widgets_by_name.players_not_ready
-    if not widget then
-        mod:echo("Error: players_not_ready widget not found")
-    elseif #mod.players_not_ready ~= 0 then
-        local text_1, text_2 = mod.get_pnr_texts()
-        update_PNR_text(widget, text_1.."\n"..text_2)
-    else
-        update_PNR_text(widget, "[TEST2]")
-    end
-end)
---]]
-
 
 -------------------------------------------------------------
 -- Update list of non-ready players & create/update PNR notif
@@ -259,24 +140,6 @@ end
 -- Grab the vote_id when a vote starts
 
 --[[
-mod:hook_safe(CLASS.VotingManagerImmateriumParty, "start_voting", function(self, template_name, params)
-    mod:echo("self._current_vote_id = "..tostring(self._current_vote_id))
-    mod.voting_id = mod.voting_id or self._current_vote_id
-end)
---]]
-
---[[
-mod:hook_safe(CLASS.VotingManager, "start_voting", function(self, template_name, params)
-    local vote_id =  self._immaterium_party_voting_impl and self._immaterium_party_voting_impl._current_vote_id
-    if not mod.voting_id then
-        mod:echo("start_voting - Setting mod.voting_id to: "..tostring(vote_id))
-    end
-    --mod.voting_id = mod.voting_id or vote_id
-    mod.voting_id = vote_id
-end)
---]]
-
---[[
 mod:hook_safe(CLASS.VotingManager, "update", function(self, dt, t)
     local immaterium_party_voting = self._immaterium_party_voting_impl
     local game_mode = Managers.state.game_mode and Managers.state.game_mode:game_mode_name()
@@ -305,72 +168,6 @@ mod:hook_safe(CLASS.VotingManager, "update", function(self, dt, t)
         mod.players_not_ready = {}
     end
 end)
---]]
-
---[[
-mod:hook_safe(CLASS.VotingClient, "init", function(self, voting_id, initiator_peer, template, optional_params, member_list, initial_votes_list, time_left)
-    local vote_id =  voting_id
-    if not mod.voting_id then
-        mod:echo("start_voting - Setting mod.voting_id to: "..tostring(vote_id))
-    end
-    --mod.voting_id = mod.voting_id or vote_id
-    mod.voting_id = vote_id
-end)
---]]
-
---[[ Hook using promise:
-mod:hook(CLASS.VotingManager, "start_voting", function(func, self, template_name, params)
-    local result = func(self, template_name, params)
-    result:next(function(voting_id)
-        mod:echo("VotingManager.start_voting - Setting mod.voting_id to "..tostring(voting_id))
-        mod.voting_id = voting_id
-    end)
-    return result
-end)
---]]
-
---[[
-mod:hook(CLASS.PartyImmateriumManager, "start_vote", function(func, self, type, params, myParams)
-    local promise, id = func(self, type, params, myParams)
-    mod:echo("PartyImmateriumManager.start_vote - id = "..tostring(id))
-    promise:next(function(voting_id)
-        mod:echo("PartyImmateriumManager.start_vote - Promise fulfilled, setting mod.voting_id to "..tostring(voting_id))
-        mod.voting_id = voting_id
-    end)
-    return promise, id
-end)
---]]
-
---[[
-mod:hook_require(
-    "scripts/settings/voting/voting_templates/accept_mission_voting_template_immaterium",
-    function(returned_template)
-        local original_func_on_vote_casted = returned_template.on_vote_casted
-        returned_template.on_vote_casted = function(voting_id, template, voter_account_id, vote_option)
-            -- Set mod.voting_id if needed
-            if not mod.voting_id then
-                mod:echo("on_vote_casted - Setting mod.vote_id to "..tostring(voting_id))
-                mod.voting_id = voting_id
-            end
-            -- Record player vote
-            mod:echo("on_vote_casted - Vote cast by "..player_name_from_peer_id(voter_account_id))
-            -- Return original result
-            return original_func_on_vote_casted(voting_id, template, voter_account_id, vote_option)
-        end
-        local original_func_on_started = returned_template.on_started
-        returned_template.on_started = function(voting_id, template, params)
-            -- Set mod.voting_id if needed
-            if not mod.voting_id then
-                mod:echo("on_started - Setting mod.vote_id to "..tostring(voting_id))
-                mod.voting_id = voting_id
-            end
-            -- Record player vote
-            --mod:echo("on_vote_casted - Vote cast by "..player_name_from_peer_id(voter_account_id))
-            -- Return original result
-            return original_func_on_started(voting_id, template, params)
-        end
-    end
-)
 --]]
 
 mod:hook_require(
@@ -438,21 +235,3 @@ mod:hook_require(
         end
     end
 )
-
---[[
-mod:hook_safe(CLASS.VotingClient, "register_vote", function(self, voter_peer_id, option)
-    if not mod.voting_id then
-        mod:echo("VotingClient.register_vote - Setting mod.voting_id to "..tostring(self._voting_id))
-        mod.voting_id = self._voting_id
-    end
-    mod:echo("VotingClient.register_vote - Vote cast by "..player_name_from_peer_id(voter_peer_id))
-end)
-
-mod:hook_safe(CLASS.VotingHost, "register_vote", function(self, voter_peer_id, option)
-    if not mod.voting_id then
-        mod:echo("VotingClient.register_vote - Setting mod.voting_id to "..tostring(self._voting_id))
-        mod.voting_id = self._voting_id
-    end
-    mod:echo("VotingClient.register_vote - Vote cast by "..player_name_from_peer_id(voter_peer_id))
-end)
---]]
