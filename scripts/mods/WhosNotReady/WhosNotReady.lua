@@ -12,7 +12,7 @@ local player_name_from_peer_id = function(peer_id)
     local character_name = member.name and member:name()
     if mod:get("name_setting") == "character_name" then
         return character_name or mod:localize("name_not_found")
-    elseif mod:get("name_setting" == "account_name") then
+    elseif mod:get("name_setting") == "account_name" then
         return account_name or mod:localize("name_not_found")
     end
     -- The previous filtering should be exhaustive, the following line is here just in case
