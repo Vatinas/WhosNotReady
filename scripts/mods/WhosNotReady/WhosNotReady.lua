@@ -30,7 +30,7 @@ mod.voting_id = nil
 mod.wrapped_vote_id = function ()
     return string.format("immaterium_party:%s", mod.voting_id)
 end
--- The list of players (peer_id's) of players not ready
+-- The list of players (peer_id's / account_id's) of players not ready
 mod.players_not_ready = {}
 -- Create PNR texts for the notif
 mod.get_pnr_texts = function()
