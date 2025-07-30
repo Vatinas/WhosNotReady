@@ -89,7 +89,6 @@ local on_vote_casted_function = function(voting_id, template, voter_account_id, 
     --> New vote started
     if not mod.voting_id then
         -- Set mod.voting_id
-        --mod:echo("on_vote_casted - Setting mod.vote_id to "..tostring(voting_id))
         mod.voting_id = voting_id
         -- Set mod.players_not_ready
         local members = Managers.voting:member_list(voting_id)
@@ -97,9 +96,9 @@ local on_vote_casted_function = function(voting_id, template, voter_account_id, 
         -- Create notif
         Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
             texts = {
-                "",
-                "",
-                "",
+                "T",
+                "T",
+                "T",
             },
         }, function (id)
             mod.notif_id = id
@@ -107,7 +106,6 @@ local on_vote_casted_function = function(voting_id, template, voter_account_id, 
     end
 
     --> Record player vote
-    --mod:echo("on_vote_casted - Vote casted by "..player_name_from_peer_id(voter_account_id))
     local new_players_not_ready = {}
     for _, account_id in pairs(mod.players_not_ready) do
         if account_id ~= voter_account_id then
@@ -136,7 +134,6 @@ end
 
 local on_completed_function = function(voting_id, template, vote_state, result)
     --> Delete mod.voting_id & notif
-    --mod:echo("on_completed - Voting over, deleting mod.voting_id & notif")
     if mod.notif_id then
         Managers.event:trigger("event_remove_notification", mod.notif_id)
     end
