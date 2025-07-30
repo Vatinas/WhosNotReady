@@ -96,9 +96,10 @@ local on_vote_casted_function = function(voting_id, template, voter_account_id, 
         -- Create notif
         Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
             texts = {
-                "T",
-                "T",
-                "T",
+                -- Initializing with tall characters so the notif is the right size
+                "[T]",
+                "[T]",
+                "[T]",
             },
         }, function (id)
             mod.notif_id = id
