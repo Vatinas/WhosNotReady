@@ -76,6 +76,7 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
                 color = Color.text_default(255, true),
             },
         }
+        notif_data.total_time = 1200
         return notif_data
     end
 end)
@@ -125,7 +126,7 @@ local on_vote_casted_function = function(voting_id, template, voter_account_id, 
     }
     if notif then
         notif_element:_set_texts(notif, texts)
-        notif.time = 0
+        --notif.time = 0
     end
 end
 
