@@ -32,7 +32,7 @@ mod.wrapped_vote_id = function ()
 end
 -- The list of players (peer_id's) of players not ready
 mod.players_not_ready = {}
--- Create PNR texts for the HUD element & the notif
+-- Create PNR texts for the notif
 mod.get_pnr_texts = function()
     local text_1 = mod:localize("players_not_ready_text")
     local text_2 = ""
@@ -81,15 +81,88 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
 end)
 
 
-------------
--- Main hook
+---------------------------------
+-- Hook function - on_vote_casted
 
+local on_vote_casted_function = function(voting_id, template, voter_account_id, vote_option)
+    --> New vote started
+    if not mod.voting_id then
+        -- Set mod.voting_id
+        mod:echo("on_vote_casted - Setting mod.vote_id to "..tostring(voting_id))
+        mod.voting_id = voting_id
+        -- Set mod.players_not_ready
+        local members = Managers.voting:member_list(voting_id)
+        mod.players_not_ready = table.clone(members)
+        -- Create notif
+        Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
+            texts = {
+                "[TEST3.1]",
+                "[TEST3.2]",
+                "[TEST3.3]",
+            },
+        }, function (id)
+            mod.notif_id = id
+        end)
+    end
+
+    --> Record player vote
+    mod:echo("on_vote_casted - Vote casted by "..player_name_from_peer_id(voter_account_id))
+    local new_players_not_ready = {}
+    for _, account_id in pairs(mod.players_not_ready) do
+        if account_id ~= voter_account_id then
+            table.insert(new_players_not_ready, account_id)
+        end
+    end
+    mod.players_not_ready = table.clone(new_players_not_ready)
+
+    --> Update notif
+    local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
+    local notif_element = constant_elements and constant_elements:element("ConstantElementNotificationFeed")
+    local notif = notif_element and notif_element:_notification_by_id(mod.notif_id)
+    local text_1, text_2 = mod.get_pnr_texts()
+    local texts = {
+        text_1, text_2
+    }
+    if notif then
+        notif_element:_set_texts(notif, texts)
+        notif.time = 0
+    end
+end
+
+
+-------------------------------
+-- Hook function - on_completed
+
+local on_completed_function = function(voting_id, template, vote_state, result)
+    --> Delete mod.voting_id & notif
+    mod:echo("on_completed - Voting over, deleting mod.voting_id & notif")
+    if mod.notif_id then
+        Managers.event:trigger("event_remove_notification", mod.notif_id)
+    end
+    mod.voting_id = nil
+    mod.notif_id = nil
+    mod.players_not_ready = {}
+end
+
+
+---------------
+-- Actual hooks
+
+mod:hook_require(
+    "scripts/settings/voting/voting_templates/mission_vote_matchmaking_immaterium",
+    function(template)
+        mod:hook_safe(template, "on_vote_casted", on_vote_casted_function)
+        mod:hook_safe(template, "on_completed", on_completed_function)
+    end)
+
+--[[
 mod:hook_require(
     "scripts/settings/voting/voting_templates/mission_vote_matchmaking_immaterium",
     function(returned_template)
         -->> on_vote_casted - Looking for new voting sessions & recording cast votes
         local original_func_on_vote_casted = returned_template.on_vote_casted
         returned_template.on_vote_casted = function(voting_id, template, voter_account_id, vote_option)
+
             --> New vote started
             if not mod.voting_id then
                 -- Set mod.voting_id
@@ -109,8 +182,9 @@ mod:hook_require(
                     mod.notif_id = id
                 end)
             end
+
             --> Record player vote
-            mod:echo("on_vote_casted - Vote cast by "..player_name_from_peer_id(voter_account_id))
+            mod:echo("on_vote_casted - Vote casted by "..player_name_from_peer_id(voter_account_id))
             local new_players_not_ready = {}
             for _, account_id in pairs(mod.players_not_ready) do
                 if account_id ~= voter_account_id then
@@ -118,6 +192,7 @@ mod:hook_require(
                 end
             end
             mod.players_not_ready = table.clone(new_players_not_ready)
+
             --> Update notif
             local constant_elements = Managers.ui and Managers.ui:ui_constant_elements()
             local notif_element = constant_elements and constant_elements:element("ConstantElementNotificationFeed")
@@ -130,22 +205,27 @@ mod:hook_require(
                 notif_element:_set_texts(notif, texts)
                 notif.time = 0
             end
+
             --> Return original result
             return original_func_on_vote_casted(voting_id, template, voter_account_id, vote_option)
         end
+
         -->> on_completed - Deleting mod.voting_id and notification
         local original_func_on_completed = returned_template.on_completed
         returned_template.on_completed = function(voting_id, template, vote_state, result)
+
             --> Delete mod.voting_id & notif
-            mod:echo("on_completed - Voting over, deleting mod.voting_id")
+            mod:echo("on_completed - Voting over, deleting mod.voting_id & notif")
             if mod.notif_id then
                 Managers.event:trigger("event_remove_notification", mod.notif_id)
             end
             mod.voting_id = nil
             mod.notif_id = nil
             mod.players_not_ready = {}
+
             --> Return original result
             return original_func_on_completed(voting_id, template, vote_state, result)
         end
     end
 )
+--]]
