@@ -123,7 +123,6 @@ local on_vote_casted_function = function(voting_id, template, voter_account_id, 
     }
     if notif then
         notif_element:_set_texts(notif, texts)
-        --notif.time = 0
     end
 end
 
