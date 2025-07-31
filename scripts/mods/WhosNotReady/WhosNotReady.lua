@@ -14,9 +14,10 @@ local player_name_from_peer_id = function(peer_id)
         return character_name or mod:localize("name_not_found")
     elseif mod:get("name_setting") == "account_name" then
         return account_name or mod:localize("name_not_found")
+    else
+        -- The previous filtering should be exhaustive, the following line is here just in case
+        return character_name or account_name or mod:localize("name_not_found")
     end
-    -- The previous filtering should be exhaustive, the following line is here just in case
-    return character_name or account_name or mod:localize("name_not_found")
 end
 
 
@@ -27,9 +28,6 @@ end
 mod.notif_id = nil
 -- The id of the voting session
 mod.voting_id = nil
-mod.wrapped_vote_id = function ()
-    return string.format("immaterium_party:%s", mod.voting_id)
-end
 -- The list of players (peer_id's / account_id's) of players not ready
 mod.players_not_ready = {}
 -- Create PNR texts for the notif
@@ -139,7 +137,7 @@ local on_completed_function = function(voting_id, template, vote_state, result)
         Managers.event:trigger("event_remove_notification", mod.notif_id)
     end
     mod.notif_id = nil
-    -- Delete mod.voting_id & mod.players_not_ready
+    --> Delete mod.voting_id & mod.players_not_ready
     mod.voting_id = nil
     mod.players_not_ready = {}
 end
