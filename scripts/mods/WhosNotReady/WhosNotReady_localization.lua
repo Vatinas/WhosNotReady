@@ -3,7 +3,7 @@ return {
 		en = "Who's not ready",
 	},
 	mod_description = {
-		en = "During votes, displays a notification showing who hasn't voted yet",
+		en = "During mission votes, displays a notification showing who hasn't voted yet",
 	},
 	name_setting = {
 		en = "Player name displayed",

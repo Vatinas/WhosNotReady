@@ -134,12 +134,13 @@ end
 -- Hook function - on_completed
 
 local on_completed_function = function(voting_id, template, vote_state, result)
-    --> Delete mod.voting_id & notif
+    --> Delete notif
     if mod.notif_id then
         Managers.event:trigger("event_remove_notification", mod.notif_id)
     end
-    mod.voting_id = nil
     mod.notif_id = nil
+    -- Delete mod.voting_id & mod.players_not_ready
+    mod.voting_id = nil
     mod.players_not_ready = {}
 end
 
