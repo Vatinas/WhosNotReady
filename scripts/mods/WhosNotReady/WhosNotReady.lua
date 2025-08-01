@@ -54,12 +54,14 @@ mod:hook("ConstantElementNotificationFeed", "_generate_notification_data", funct
     if message_type ~= "pnr_voting_info" then
         return(func(self, message_type, data))
     else
+        -- The "voting" notif type needs 3 texts, so we add a third one just to initialize the notif data
+        data.texts[3] = ""
         local notif_data = func(self, "voting", data)
         notif_data.texts = {
             {
                 -- First line - "Players not ready:"
                 font_size = 22,
-                display_name = mod:localize("players_not_ready_text"),
+                display_name = data.texts[1],
                 color = {
                     255,
                     232,
@@ -92,11 +94,11 @@ local on_vote_casted_function = function(voting_id, template, voter_account_id, 
         local members = Managers.voting:member_list(voting_id)
         mod.players_not_ready = table.clone(members)
         -- Create notif
+        local starting_text_1, starting_text_2 = mod.get_pnr_texts()
         Managers.event:trigger("event_add_notification_message", "pnr_voting_info", {
             texts = {
-                -- Initializing with tall characters so the notif is the right size
-                "[T]",
-                "[T]",
+                -- Initializing with actual values so the notif is created with the right size
+                starting_text_1,
                 "[T]",
             },
         }, function (id)
