@@ -20,6 +20,18 @@ local player_name_from_peer_id = function(peer_id)
     end
 end
 
+-- End the mod's tracking of an active vote
+mod.end_vote = function()
+    --> Delete notif
+    if mod.notif_id then
+        Managers.event:trigger("event_remove_notification", mod.notif_id)
+    end
+    mod.notif_id = nil
+    --> Delete mod.voting_id & mod.players_not_ready
+    mod.voting_id = nil
+    mod.players_not_ready = {}
+end
+
 
 ------------------------
 -- Initialize mod values
@@ -133,14 +145,15 @@ end
 -- Hook function - on_completed
 
 local on_completed_function = function(voting_id, template, vote_state, result)
-    --> Delete notif
-    if mod.notif_id then
-        Managers.event:trigger("event_remove_notification", mod.notif_id)
-    end
-    mod.notif_id = nil
-    --> Delete mod.voting_id & mod.players_not_ready
-    mod.voting_id = nil
-    mod.players_not_ready = {}
+    mod:end_vote()
+end
+
+
+-----------------------------
+-- Hook function - on_aborted
+
+local on_aborted_function = function(voting_id, template, params, abort_reason)
+    mod:end_vote()
 end
 
 
@@ -152,4 +165,5 @@ mod:hook_require(
     function(template)
         mod:hook_safe(template, "on_vote_casted", on_vote_casted_function)
         mod:hook_safe(template, "on_completed", on_completed_function)
+        mod:hook_safe(template, "on_aborted", on_aborted_function)
     end)
