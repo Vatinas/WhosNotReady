@@ -9,11 +9,11 @@ local player_name_from_peer_id = function(peer_id)
     local member = Managers.party_immaterium:member_from_account_id(peer_id)
     local presence = member and member:presence()
     local account_name = presence and presence:account_name()
-    local character_name = member.name and member:name()
+    local character_name = member and member.name and member:name()
     if mod:get("name_setting") == "character_name" then
-        return character_name or mod:localize("name_not_found")
+        return character_name or account_name or mod:localize("name_not_found")
     elseif mod:get("name_setting") == "account_name" then
-        return account_name or mod:localize("name_not_found")
+        return account_name or character_name or mod:localize("name_not_found")
     else
         -- The previous filtering should be exhaustive, the following line is here just in case
         return character_name or account_name or mod:localize("name_not_found")
